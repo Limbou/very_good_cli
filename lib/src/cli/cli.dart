@@ -1,3 +1,4 @@
+import 'package:lcov_parser/lcov_parser.dart';
 import 'package:path/path.dart' as p;
 import 'package:universal_io/io.dart';
 

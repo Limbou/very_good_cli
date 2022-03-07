@@ -4,6 +4,19 @@ part of 'cli.dart';
 /// is executed without a `pubspec.yaml`.
 class PubspecNotFound implements Exception {}
 
+
+/// {@template coverage_not_met}
+/// Thrown when `flutter test ---coverage --min-coverage value`
+/// don't met the informed minimum coverage
+/// {@endtemplate}
+class CoverageNotMet implements Exception {
+  /// {@macro coverage_not_met}
+  CoverageNotMet(this.currentCoverage);
+
+  /// The current coverage value when this exception was thrown
+  double currentCoverage;
+}
+
 /// Flutter CLI
 class Flutter {
   /// Determine whether flutter is installed.
@@ -65,6 +78,8 @@ class Flutter {
   static Future<void> test({
     String cwd = '.',
     bool recursive = false,
+    bool collectCoverage = false,
+    double? minCoverage = 0,
     void Function([String?]) Function(String message)? progress,
   }) async {
     await _runCommand(
@@ -75,9 +90,30 @@ class Flutter {
         try {
           final result = await _Cmd.run(
             'flutter',
-            ['test'],
+            [
+              'test',
+              if (collectCoverage) '--coverage',
+            ],
             workingDirectory: cwd,
           );
+
+          if (collectCoverage && minCoverage != null) {
+            final lcovPath = p.join(cwd, 'coverage', 'lcov.info');
+            final records = await Parser.parse(lcovPath);
+
+            var totalHits = 0;
+            var totalFinds = 0;
+            for (final rec in records) {
+              totalFinds += rec.lines?.found ?? 0;
+              totalHits += rec.lines?.hit ?? 0;
+            }
+
+            final coverage = (totalHits / totalFinds) * 100;
+            if (coverage < minCoverage) {
+              throw CoverageNotMet(coverage);
+            }
+          }
+
           return result;
         } catch (_) {
           rethrow;
